@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-dejavu-core fonts-liberation fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --no-cache-dir faster-whisper==1.2.0 yt-dlp==2026.9.16
+RUN pip3 install --no-cache-dir faster-whisper==1.2.0 yt-dlp==2026.8.19
 
 WORKDIR /app
 
