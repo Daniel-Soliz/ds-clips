@@ -1,5 +1,6 @@
 import { ChangeEvent, DragEvent, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { chooseSegments, fetchDirectVideo, renderSegments, type RenderedClip } from './lib/videoEngine'
 import {
   ArrowRight,
   Captions,
@@ -85,6 +86,9 @@ export default function App() {
   const [urlReady, setUrlReady] = useState(false)
   const [urlError, setUrlError] = useState('')
   const [progress, setProgress] = useState(0)
+  const [processingStatus, setProcessingStatus] = useState('Preparando...')
+  const [processingError, setProcessingError] = useState('')
+  const [generatedClips, setGeneratedClips] = useState<RenderedClip[]>([])
 
   const [aspect, setAspect] = useState<Aspect>('9:16')
   const [clipLength, setClipLength] = useState<ClipLength>('auto')
@@ -102,7 +106,7 @@ export default function App() {
   const fileUrl = useMemo(() => (file ? URL.createObjectURL(file) : ''), [file])
 
   const desiredCount = clipCount === 'auto' ? 5 : Number(clipCount)
-  const clips = allClips.slice(0, desiredCount)
+  const clips = generatedClips.length ? generatedClips : allClips.slice(0, desiredCount)
   const sourceReady = Boolean(file || urlReady)
 
   function validateUrl() {
@@ -139,36 +143,100 @@ export default function App() {
     }
   }
 
-  function startProcessing() {
+  async function startProcessing() {
     if (!sourceReady) {
       if (sourceMode === 'link') validateUrl()
       else inputRef.current?.click()
       return
     }
 
+    setProcessingError('')
+    setGeneratedClips([])
     setStage('processing')
-    setProgress(6)
-    let value = 6
-    const timer = window.setInterval(() => {
-      value += Math.ceil(Math.random() * 9)
-      if (value >= 100) {
-        window.clearInterval(timer)
-        setProgress(100)
-        window.setTimeout(() => setStage('ready'), 450)
-      } else {
-        setProgress(value)
+    setProgress(4)
+    setProcessingStatus('Preparando o vídeo...')
+
+    try {
+      let sourceFile = file
+      if (!sourceFile && urlReady) {
+        setProcessingStatus('Importando vídeo pelo link...')
+        sourceFile = await fetchDirectVideo(videoUrl.trim())
       }
-    }, 360)
+      if (!sourceFile) throw new Error('Nenhum vídeo disponível para processar.')
+
+      setProgress(12)
+      setProcessingStatus('Analisando ritmo e picos de energia...')
+      const segments = await chooseSegments(sourceFile, desiredCount, clipLength)
+
+      setProgress(24)
+      setProcessingStatus('Carregando o motor de edição...')
+      const output = await renderSegments(
+        sourceFile,
+        segments,
+        aspect,
+        quality as '720p' | '1080p' | '4K',
+        (renderProgress, status) => {
+          setProgress(24 + Math.round(renderProgress * 0.76))
+          setProcessingStatus(status)
+        },
+      )
+
+      setGeneratedClips(output)
+      setActiveClip(0)
+      setProgress(100)
+      setProcessingStatus('Cortes prontos')
+      window.setTimeout(() => setStage('ready'), 300)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível gerar os cortes.'
+      setProcessingError(message)
+      setStage('idle')
+      setProgress(0)
+      if (sourceMode === 'link') {
+        setUrlError(
+          message.includes('diretamente')
+            ? 'Por enquanto, links precisam apontar direto para um arquivo MP4/WebM. YouTube, TikTok e Instagram exigem o backend que vamos conectar na próxima etapa.'
+            : message
+        )
+      }
+    }
   }
 
   function resetProject() {
+    generatedClips.forEach(clip => URL.revokeObjectURL(clip.url))
+    setGeneratedClips([])
     setStage('idle')
     setProgress(0)
+    setProcessingStatus('Preparando...')
+    setProcessingError('')
     setFile(null)
     setVideoUrl('')
     setUrlReady(false)
     setUrlError('')
     setActiveClip(0)
+  }
+
+  function downloadClip(index: number) {
+    const clip = generatedClips[index]
+    if (!clip) return
+    const a = document.createElement('a')
+    a.href = clip.url
+    a.download = clip.filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
+
+  function downloadAllClips() {
+    generatedClips.forEach((_, index) => {
+      window.setTimeout(() => downloadClip(index), index * 350)
+    })
+  }
+
+  function formatTime(seconds: number) {
+    const value = Math.max(0, Math.floor(seconds))
+    const min = Math.floor(value / 60)
+    const sec = value % 60
+    return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
   }
 
   const aspectClass = aspect.replace(':', 'x')
@@ -243,7 +311,7 @@ export default function App() {
             <span>Auto-save</span>
             <button className="formatMini"><span>{aspect}</span><ChevronDown size={14} /></button>
             {stage !== 'idle' && <button onClick={resetProject}><RotateCcw size={14} /> Novo</button>}
-            <button className="exportButton" disabled={stage !== 'ready'}><Download size={15} /> Exportar</button>
+            <button className="exportButton" disabled={stage !== 'ready' || !generatedClips.length} onClick={() => downloadClip(activeClip)}><Download size={15} /> Exportar</button>
           </div>
         </div>
 
@@ -421,17 +489,7 @@ export default function App() {
                     <div className="aiPulse"><Sparkles size={16} /></div>
                     <div>
                       <small>DS DIRECTOR está analisando</small>
-                      <h2>
-                        {progress < 22
-                          ? 'Importando e preparando o vídeo...'
-                          : progress < 46
-                            ? 'Transcrevendo e entendendo o contexto...'
-                            : progress < 72
-                              ? 'Encontrando os melhores momentos...'
-                              : progress < 90
-                                ? 'Criando enquadramento e legendas...'
-                                : 'Montando seus cortes...'}
-                      </h2>
+                      <h2>{processingStatus}</h2>
                     </div>
                     <strong>{progress}%</strong>
                   </div>
@@ -450,24 +508,24 @@ export default function App() {
                 <motion.div className="editorCanvas" key="ready" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
                   <div className={`previewFrame aspect-${aspectClass}`}>
                     <div className="videoSurface">
-                      {fileUrl ? <video src={fileUrl} muted loop autoPlay playsInline /> : null}
+                      {(generatedClips[activeClip]?.url || fileUrl) ? <video src={generatedClips[activeClip]?.url || fileUrl} muted loop autoPlay playsInline controls /> : null}
                       <div className="previewShade" />
                       <div className={`captionPreview style${captionStyle}`}>
                         O conteúdo bom<br /><b>começa antes</b> do play.
                       </div>
                       <div className="speakerTag">DS SMART FOCUS</div>
-                      {!fileUrl && <div className="linkVideoPlaceholder"><Play size={26} fill="currentColor" /><small>preview do corte</small></div>}
+                      {!generatedClips[activeClip]?.url && !fileUrl && <div className="linkVideoPlaceholder"><Play size={26} fill="currentColor" /><small>preview do corte</small></div>}
                     </div>
                   </div>
                   <div className="timelinePanel">
                     <div className="editorSummary">
                       <div><small>Formato</small><strong>{aspect}</strong></div>
-                      <div><small>Duração</small><strong>{clips[activeClip]?.duration}</strong></div>
+                      <div><small>Duração</small><strong>{generatedClips[activeClip] ? `${Math.round(generatedClips[activeClip].duration)}s` : clips[activeClip]?.duration}</strong></div>
                       <div><small>Qualidade</small><strong>{quality}</strong></div>
                     </div>
                     <div className="timelineHeader">
-                      <span><Play size={13} fill="currentColor" /> 00:18</span>
-                      <small>00:46</small>
+                      <span><Play size={13} fill="currentColor" /> {generatedClips[activeClip] ? formatTime(generatedClips[activeClip].start) : '00:18'}</span>
+                      <small>{generatedClips[activeClip] ? formatTime(generatedClips[activeClip].start + generatedClips[activeClip].duration) : '00:46'}</small>
                     </div>
                     <div className="waveform">
                       {waveform.map((height, index) => (
@@ -483,7 +541,7 @@ export default function App() {
                     <div className="editorActions">
                       <button><Captions size={14} /> Editar legenda</button>
                       <button><Scissors size={14} /> Ajustar corte</button>
-                      <button className="strong"><Download size={14} /> Exportar este clip</button>
+                      <button className="strong" onClick={() => downloadClip(activeClip)} disabled={!generatedClips.length}><Download size={14} /> Exportar este clip</button>
                     </div>
                   </div>
                 </motion.div>
@@ -541,7 +599,7 @@ export default function App() {
               <div><Sparkles size={16} /><strong>Momentos encontrados</strong><span>{clips.length}</span></div>
               <div className="shelfActions">
                 <button onClick={resetProject}><RotateCcw size={14} /> Novo projeto</button>
-                <button className="exportAll"><Download size={14} /> Exportar todos</button>
+                <button className="exportAll" onClick={downloadAllClips} disabled={!generatedClips.length}><Download size={14} /> Exportar todos</button>
               </div>
             </div>
             <div className="clipCards">
@@ -550,10 +608,10 @@ export default function App() {
                   <div className="clipThumb">
                     <span className="score"><Zap size={11} fill="currentColor" /> {clip.score}</span>
                     <span className="clipPlay"><Play size={14} fill="currentColor" /></span>
-                    <small>{clip.duration}</small>
+                    <small>{typeof clip.duration === 'number' ? `${Math.round(clip.duration)}s` : clip.duration}</small>
                   </div>
                   <div className="clipInfo">
-                    <small>{clip.time}</small>
+                    <small>{'start' in clip ? `${formatTime(clip.start)} — ${formatTime(clip.start + clip.duration)}` : clip.time}</small>
                     <strong>{clip.title}</strong>
                   </div>
                 </button>
