@@ -9,6 +9,7 @@ export const runtime = "nodejs"
 const BodySchema = z.object({
   url: z.string().url(),
   captionStyle: CaptionStyleSchema.default("neon"),
+  rightsAccepted: z.literal(true),
 })
 
 export async function POST(request: Request) {
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
         inputType: "URL",
         sourceUrl: body.url,
         captionStyle: body.captionStyle,
+        rightsAcceptedAt: new Date(),
         stage: "queued",
         progress: 1,
       },
