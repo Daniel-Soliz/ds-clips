@@ -5,7 +5,7 @@ ENV PYTHONUNBUFFERED=1 \
     NEXT_TELEMETRY_DISABLED=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg python3 python3-pip python3-opencv curl ca-certificates \
+    ffmpeg python3 python3-pip python3-opencv curl ca-certificates espeak \
     fonts-dejavu-core fonts-liberation fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
 
