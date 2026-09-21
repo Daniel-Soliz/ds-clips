@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum InputType {
+  UPLOAD
+  URL
+}
+
+enum ProjectStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ClipStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+model Project {
+  id           String        @id @default(cuid())
+  inputType    InputType
+  sourceUrl    String?
+  originalPath String?
+  originalName String?
+  status       ProjectStatus @default(QUEUED)
+  stage        String        @default("queued")
+  progress     Int           @default(0)
+  error        String?
+  language     String?
+  durationSec  Float?
+  captionStyle String        @default("neon")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  clips        Clip[]
+}
+
+model Clip {
+  id           String     @id @default(cuid())
+  projectId    String
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  startSec     Float
+  endSec       Float
+  title        String
+  viralScore   Int
+  reason       String
+  hashtags     Json
+  outputPath   String?
+  captionStyle String
+  status       ClipStatus @default(PROCESSING)
+  error        String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([projectId, viralScore])
+}
