@@ -150,14 +150,14 @@ export default function App() {
         <div className="studioGrid">
           <aside className="toolRail">
             {[
-              [WandSparkles, 'Magic'],
-              [Scissors, 'Cortes'],
-              [Captions, 'Legendas'],
-              [Layers3, 'Brand'],
-            ].map(([Icon, label], index) => (
-              <button className={index === 0 ? 'active' : ''} key={String(label)}>
+              { Icon: WandSparkles, label: 'Magic' },
+              { Icon: Scissors, label: 'Cortes' },
+              { Icon: Captions, label: 'Legendas' },
+              { Icon: Layers3, label: 'Brand' },
+            ].map(({ Icon, label }, index) => (
+              <button className={index === 0 ? 'active' : ''} key={label}>
                 <Icon size={18} />
-                <span>{String(label)}</span>
+                <span>{label}</span>
               </button>
             ))}
           </aside>
