@@ -1,11 +1,11 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import { spawn } from "node:child_process"
-import Anthropic from "@anthropic-ai/sdk"
 import { db } from "../src/lib/db"
 import { updateProgress } from "../src/lib/progress"
 import { projectDir, ensureProjectDir } from "../src/lib/storage"
-import { ViralMoment, ViralMomentsSchema } from "../src/lib/schemas"
+import { ViralMoment } from "../src/lib/schemas"
+import { getMomentRankingProvider } from "../src/lib/providers"
 
 type TranscriptWord = { word: string; start: number; end: number }
 type TranscriptSegment = { start: number; end: number; text: string; words: TranscriptWord[] }
@@ -115,44 +115,17 @@ function chunkPrompt(chunk: TranscriptSegment[], maxClips: number) {
     "- não use markdown nem comentários fora do JSON."
 }
 
-function parseClaudeJson(text: string) {
-  const trimmed = text.trim().replace(/^\x60\x60\x60(?:json)?/i, "").replace(/\x60\x60\x60$/, "").trim()
-  return ViralMomentsSchema.parse(JSON.parse(trimmed))
-}
-
 async function selectMoments(transcript: Transcript) {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada.")
-  const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5"
-  const client = new Anthropic({ apiKey })
+  const provider = getMomentRankingProvider()
   const chunks = transcriptChunks(transcript)
   const candidates: ViralMoment[] = []
 
-  for (let index = 0; index < chunks.length; index++) {
-    const prompt = chunkPrompt(chunks[index], 4)
-    let lastError: unknown = null
-
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const response = await client.messages.create({
-          model,
-          max_tokens: 5000,
-          system: "Você é um editor profissional de vídeo curto. Seja rigoroso com timestamps e JSON.",
-          messages: [{
-            role: "user",
-            content: attempt === 1 ? prompt : prompt + "\n\nA tentativa anterior retornou JSON inválido. Corrija estritamente o formato.",
-          }],
-        })
-        const text = response.content.find((block) => block.type === "text")
-        if (!text || text.type !== "text") throw new Error("Claude não retornou texto.")
-        candidates.push(...parseClaudeJson(text.text))
-        lastError = null
-        break
-      } catch (error) {
-        lastError = error
-      }
-    }
-    if (lastError) throw lastError
+  for (const chunk of chunks) {
+    const transcriptText = chunk
+      .map((s) => "[" + s.start.toFixed(2) + "-" + s.end.toFixed(2) + "] " + s.text.trim())
+      .join("\n")
+    const ranked = await provider.rank({ transcriptText, maxClips: 4 })
+    candidates.push(...ranked)
   }
 
   const sorted = candidates
