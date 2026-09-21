@@ -472,6 +472,12 @@ export default function App() {
                       <WandSparkles size={17} /> {sourceReady ? 'Gerar meus cortes' : 'Escolher vídeo'} <ArrowRight size={15} />
                     </button>
                   </div>
+                  {processingError && (
+                    <div className="processingErrorBox">
+                      <strong>Não foi possível processar o vídeo</strong>
+                      <span>{processingError}</span>
+                    </div>
+                  )}
                 </motion.div>
               )}
 
