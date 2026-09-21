@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: dsclips
+      POSTGRES_PASSWORD: dsclips
+      POSTGRES_DB: dsclips
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dsclips -d dsclips"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - redisdata:/data
+
+  web:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://dsclips:dsclips@postgres:5432/dsclips?schema=public
+      REDIS_URL: redis://redis:6379
+      DATA_DIR: /data
+    command: sh -c "npx prisma db push && npm start"
+    ports:
+      - "3000:3000"
+    volumes:
+      - media:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://dsclips:dsclips@postgres:5432/dsclips?schema=public
+      REDIS_URL: redis://redis:6379
+      DATA_DIR: /data
+    command: sh -c "npx prisma db push && npm run worker"
+    volumes:
+      - media:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
+  media:
