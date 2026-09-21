@@ -244,3 +244,28 @@ footer>small { margin-left:auto;font-size:9px; }
   footer { align-items:flex-start;flex-direction:column; }
   footer>small { margin-left:0; }
 }
+
+
+.sourcePanel { width:100%; min-height:486px; border-radius:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:18px; }
+.sourceTabs { display:flex; gap:6px; padding:5px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.025); margin-bottom:18px; }
+.sourceTabs button { border:0; background:transparent; color:#697180; border-radius:9px; padding:9px 13px; cursor:pointer; display:flex; align-items:center; gap:7px; font-size:10px; }
+.sourceTabs button.active { background:rgba(255,255,255,.08); color:#f2f4f7; box-shadow:inset 0 0 0 1px rgba(255,255,255,.06); }
+.sourcePanel .dropZone { width:100%; min-height:320px; }
+.linkImport { width:min(650px,100%); min-height:320px; border:1px solid rgba(255,255,255,.11); border-radius:16px; background:rgba(255,255,255,.012); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:34px 24px; text-align:center; }
+.linkImport h2 { font-size:20px; letter-spacing:-.03em; margin:18px 0 6px; }
+.linkImport>p { color:#717887; font-size:12px; margin:0 0 18px; }
+.linkField { width:100%; display:grid; grid-template-columns:20px minmax(0,1fr) auto; align-items:center; gap:9px; border:1px solid rgba(255,255,255,.12); background:#0b0e13; border-radius:12px; padding:7px 7px 7px 12px; box-shadow:0 10px 35px rgba(0,0,0,.2); }
+.linkField>svg { color:#687180; }
+.linkField input { width:100%; border:0; outline:0; background:transparent; color:#eef2f7; font-size:12px; min-width:0; }
+.linkField input::placeholder { color:#434a57; }
+.linkField button { border:0; border-radius:9px; padding:10px 12px; background:var(--acid); color:#0d100b; font-weight:750; font-size:10px; cursor:pointer; display:flex; align-items:center; gap:6px; }
+.urlError { color:#ff7b7b; font-size:9px; margin-top:8px; align-self:flex-start; }
+.linkHint { margin-top:13px; color:#505866; font-size:9px; }
+.sourcePanel .dropDivider { margin-top:18px; }
+
+@media (max-width: 700px) {
+  .sourcePanel { padding:8px; min-height:470px; }
+  .linkImport { padding:24px 12px; }
+  .linkField { grid-template-columns:18px minmax(0,1fr); }
+  .linkField button { grid-column:1 / -1; width:100%; justify-content:center; }
+}
