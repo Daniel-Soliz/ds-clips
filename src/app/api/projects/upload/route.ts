@@ -13,6 +13,8 @@ export async function POST(request: Request) {
     const file = form.get("file")
     const captionStyleRaw = String(form.get("captionStyle") ?? "neon")
     const captionStyle = CaptionStyleSchema.parse(captionStyleRaw)
+    const rightsAccepted = String(form.get("rightsAccepted") ?? "false") === "true"
+    if (!rightsAccepted) return NextResponse.json({ error: "Confirme que você possui os direitos ou licença para usar este vídeo." }, { status: 400 })
 
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Arquivo de vídeo ausente." }, { status: 400 })
@@ -31,6 +33,7 @@ export async function POST(request: Request) {
         inputType: "UPLOAD",
         originalName: file.name,
         captionStyle,
+        rightsAcceptedAt: new Date(),
         stage: "uploading",
         progress: 0,
       },
