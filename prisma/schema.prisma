@@ -38,6 +38,7 @@ model Project {
   language     String?
   durationSec  Float?
   captionStyle String        @default("neon")
+  rightsAcceptedAt DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   clips        Clip[]
