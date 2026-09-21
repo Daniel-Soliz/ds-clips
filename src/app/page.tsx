@@ -47,6 +47,7 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null)
   const [url, setUrl] = useState("")
   const [captionStyle, setCaptionStyle] = useState("neon")
+  const [rightsAccepted, setRightsAccepted] = useState(false)
   const [project, setProject] = useState<Project | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -86,7 +87,7 @@ export default function Home() {
     const response = await fetch("/api/projects/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, captionStyle }),
+      body: JSON.stringify({ url, captionStyle, rightsAccepted }),
     })
     const data = await response.json()
     if (!response.ok) throw new Error(data.error || "Falha ao importar link.")
@@ -99,6 +100,7 @@ export default function Home() {
       const form = new FormData()
       form.append("file", file)
       form.append("captionStyle", captionStyle)
+      form.append("rightsAccepted", String(rightsAccepted))
 
       const xhr = new XMLHttpRequest()
       xhr.open("POST", "/api/projects/upload")
@@ -227,6 +229,16 @@ export default function Home() {
             {styles.map((style) => <option key={style.id} value={style.id}>{style.label}</option>)}
           </select>
 
+          <label className="mb-5 flex items-start gap-3 rounded-xl border border-white/10 bg-white/[.02] p-3 text-xs leading-5 text-white/50">
+            <input
+              type="checkbox"
+              checked={rightsAccepted}
+              onChange={(e) => setRightsAccepted(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-[var(--acid)]"
+            />
+            <span>Declaro que sou dono deste vídeo ou tenho licença/autorização para processá-lo e gerar clipes.</span>
+          </label>
+
           {mode === "upload" && uploadProgress > 0 && uploadProgress < 100 && (
             <div className="mb-5">
               <div className="mb-2 flex justify-between text-xs text-white/45"><span>Upload</span><span>{uploadProgress}%</span></div>
@@ -234,7 +246,7 @@ export default function Home() {
             </div>
           )}
 
-          <button disabled={busy || (mode === "upload" ? !file : !url)} className="w-full rounded-xl bg-[var(--acid)] px-5 py-3.5 font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">
+          <button disabled={busy || !rightsAccepted || (mode === "upload" ? !file : !url)} className="w-full rounded-xl bg-[var(--acid)] px-5 py-3.5 font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">
             {busy ? "Enviando..." : "Gerar clipes reais"}
           </button>
           {message && <p className="mt-4 rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-200">{message}</p>}
