@@ -1,0 +1,16 @@
+name: Pipeline v1 build
+
+on:
+  push:
+    branches: ["pipeline-v1"]
+  workflow_dispatch:
+
+jobs:
+  build-and-unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t dsclips-pipeline:test .
+      - name: Run unit tests
+        run: docker run --rm dsclips-pipeline:test npm test
