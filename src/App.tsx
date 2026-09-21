@@ -10,6 +10,7 @@ import {
   Download,
   Gauge,
   Layers3,
+  Link2,
   Menu,
   Mic2,
   Play,
@@ -50,6 +51,9 @@ export default function App() {
   const [captionStyle, setCaptionStyle] = useState('Punch')
   const [smartFocus, setSmartFocus] = useState(true)
   const [silenceCut, setSilenceCut] = useState(true)
+  const [sourceMode, setSourceMode] = useState<'upload' | 'link'>('upload')
+  const [videoUrl, setVideoUrl] = useState('')
+  const [urlError, setUrlError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const fileUrl = useMemo(() => (file ? URL.createObjectURL(file) : ''), [file])
@@ -80,6 +84,30 @@ export default function App() {
     event.preventDefault()
     const nextFile = event.dataTransfer.files?.[0]
     if (nextFile?.type.startsWith('video/')) startProcessing(nextFile)
+  }
+
+  function startProcessingFromLink() {
+    try {
+      const parsed = new URL(videoUrl.trim())
+      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('invalid')
+      setUrlError('')
+      setFile(null)
+      setStage('processing')
+      setProgress(8)
+      let value = 8
+      const timer = window.setInterval(() => {
+        value += Math.ceil(Math.random() * 11)
+        if (value >= 100) {
+          window.clearInterval(timer)
+          setProgress(100)
+          window.setTimeout(() => setStage('ready'), 450)
+        } else {
+          setProgress(value)
+        }
+      }, 340)
+    } catch {
+      setUrlError('Cole um link válido de vídeo.')
+    }
   }
 
   return (
@@ -166,19 +194,54 @@ export default function App() {
             <AnimatePresence mode="wait">
               {stage === 'idle' && (
                 <motion.div
-                  className="dropZone"
+                  className="sourcePanel"
                   key="idle"
                   initial={{ opacity: 0, scale: .98 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0 }}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={onDrop}
-                  onClick={() => inputRef.current?.click()}
                 >
-                  <input ref={inputRef} type="file" accept="video/*" onChange={onFileChange} hidden />
-                  <div className="uploadOrb"><UploadCloud size={28} /></div>
-                  <h2>Solte seu vídeo aqui</h2>
-                  <p>ou clique para escolher um arquivo</p>
+                  <div className="sourceTabs">
+                    <button className={sourceMode === 'upload' ? 'active' : ''} onClick={() => setSourceMode('upload')}>
+                      <UploadCloud size={15} /> Enviar vídeo
+                    </button>
+                    <button className={sourceMode === 'link' ? 'active' : ''} onClick={() => setSourceMode('link')}>
+                      <Link2 size={15} /> Colar link
+                    </button>
+                  </div>
+
+                  {sourceMode === 'upload' ? (
+                    <div
+                      className="dropZone"
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={onDrop}
+                      onClick={() => inputRef.current?.click()}
+                    >
+                      <input ref={inputRef} type="file" accept="video/*" onChange={onFileChange} hidden />
+                      <div className="uploadOrb"><UploadCloud size={28} /></div>
+                      <h2>Solte seu vídeo aqui</h2>
+                      <p>ou clique para escolher um arquivo</p>
+                    </div>
+                  ) : (
+                    <div className="linkImport">
+                      <div className="uploadOrb"><Link2 size={28} /></div>
+                      <h2>Cole o link do vídeo</h2>
+                      <p>YouTube, TikTok, Instagram ou link direto de vídeo</p>
+                      <div className="linkField">
+                        <Link2 size={17} />
+                        <input
+                          value={videoUrl}
+                          onChange={(e) => { setVideoUrl(e.target.value); setUrlError('') }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') startProcessingFromLink() }}
+                          placeholder="https://..."
+                          inputMode="url"
+                        />
+                        <button onClick={startProcessingFromLink}>Importar <ArrowRight size={15} /></button>
+                      </div>
+                      {urlError && <small className="urlError">{urlError}</small>}
+                      <div className="linkHint">Cole um vídeo que você tenha permissão para usar.</div>
+                    </div>
+                  )}
+
                   <div className="dropDivider"><span /> <em>DS AI vai cuidar do resto</em> <span /></div>
                   <div className="autoChips">
                     <span><Scissors size={13} /> encontra cortes</span>
@@ -198,7 +261,7 @@ export default function App() {
                   <div className="scanPreview">
                     <div className="scanLine" />
                     <Clapperboard size={38} />
-                    <span>{file?.name}</span>
+                    <span>{file?.name || videoUrl || 'Vídeo por link'}</span>
                   </div>
                   <div className="processingCopy">
                     <div className="aiPulse"><Sparkles size={16} /></div>
