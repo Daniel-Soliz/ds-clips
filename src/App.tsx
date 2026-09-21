@@ -9,24 +9,39 @@ import {
   Clock3,
   Download,
   Gauge,
+  Languages,
   Layers3,
   Link2,
   Menu,
   Mic2,
+  Monitor,
   Play,
+  RotateCcw,
   Scissors,
+  Settings2,
+  Smartphone,
   Sparkles,
+  Square,
   UploadCloud,
   WandSparkles,
   Zap,
 } from 'lucide-react'
 
 type Stage = 'idle' | 'processing' | 'ready'
+type SourceMode = 'upload' | 'link'
+type Aspect = '9:16' | '1:1' | '16:9'
+type ClipLength = 'auto' | '15-30' | '30-60' | '60-90'
+type ClipCount = 'auto' | '3' | '5' | '8'
 
-const sampleClips = [
+const allClips = [
   { time: '00:18 — 00:46', title: 'A frase que prende nos 3 primeiros segundos', score: 96, duration: '28s' },
-  { time: '01:12 — 01:51', title: 'O ponto de virada da história', score: 91, duration: '39s' },
-  { time: '03:04 — 03:36', title: 'Resposta curta com alto potencial de retenção', score: 88, duration: '32s' },
+  { time: '01:12 — 01:51', title: 'O ponto de virada da história', score: 93, duration: '39s' },
+  { time: '03:04 — 03:36', title: 'Resposta curta com alto potencial de retenção', score: 91, duration: '32s' },
+  { time: '04:22 — 05:04', title: 'Opinião forte que gera comentário', score: 88, duration: '42s' },
+  { time: '06:10 — 06:44', title: 'Insight direto com ritmo rápido', score: 86, duration: '34s' },
+  { time: '08:02 — 08:31', title: 'Trecho com pergunta e resposta clara', score: 84, duration: '29s' },
+  { time: '10:15 — 10:58', title: 'Momento emocional com boa conclusão', score: 82, duration: '43s' },
+  { time: '12:08 — 12:40', title: 'Dica prática que funciona como tutorial', score: 80, duration: '32s' },
 ]
 
 const waveform = Array.from({ length: 74 }, (_, i) => {
@@ -43,28 +58,99 @@ function BrandMark() {
   )
 }
 
+function Toggle({
+  value,
+  onChange,
+  title,
+  description,
+}: {
+  value: boolean
+  onChange: () => void
+  title: string
+  description: string
+}) {
+  return (
+    <div className="toggleRow">
+      <div><strong>{title}</strong><small>{description}</small></div>
+      <button className={value ? 'toggle on' : 'toggle'} onClick={onChange}><span /></button>
+    </div>
+  )
+}
+
 export default function App() {
   const [stage, setStage] = useState<Stage>('idle')
+  const [sourceMode, setSourceMode] = useState<SourceMode>('upload')
   const [file, setFile] = useState<File | null>(null)
+  const [videoUrl, setVideoUrl] = useState('')
+  const [urlReady, setUrlReady] = useState(false)
+  const [urlError, setUrlError] = useState('')
   const [progress, setProgress] = useState(0)
-  const [activeClip, setActiveClip] = useState(0)
+
+  const [aspect, setAspect] = useState<Aspect>('9:16')
+  const [clipLength, setClipLength] = useState<ClipLength>('auto')
+  const [clipCount, setClipCount] = useState<ClipCount>('auto')
+  const [language, setLanguage] = useState('pt-BR')
+  const [quality, setQuality] = useState('1080p')
   const [captionStyle, setCaptionStyle] = useState('Punch')
   const [smartFocus, setSmartFocus] = useState(true)
   const [silenceCut, setSilenceCut] = useState(true)
-  const [sourceMode, setSourceMode] = useState<'upload' | 'link'>('upload')
-  const [videoUrl, setVideoUrl] = useState('')
-  const [urlError, setUrlError] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [autoZoom, setAutoZoom] = useState(true)
+  const [autoEmoji, setAutoEmoji] = useState(false)
+  const [activeClip, setActiveClip] = useState(0)
 
+  const inputRef = useRef<HTMLInputElement>(null)
   const fileUrl = useMemo(() => (file ? URL.createObjectURL(file) : ''), [file])
 
-  function startProcessing(nextFile: File) {
-    setFile(nextFile)
+  const desiredCount = clipCount === 'auto' ? 5 : Number(clipCount)
+  const clips = allClips.slice(0, desiredCount)
+  const sourceReady = Boolean(file || urlReady)
+
+  function validateUrl() {
+    try {
+      const parsed = new URL(videoUrl.trim())
+      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('invalid')
+      setUrlError('')
+      setUrlReady(true)
+      setFile(null)
+    } catch {
+      setUrlReady(false)
+      setUrlError('Cole um link válido de vídeo.')
+    }
+  }
+
+  function onFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const nextFile = event.target.files?.[0]
+    if (nextFile) {
+      setFile(nextFile)
+      setUrlReady(false)
+      setVideoUrl('')
+      setUrlError('')
+    }
+  }
+
+  function onDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault()
+    const nextFile = event.dataTransfer.files?.[0]
+    if (nextFile?.type.startsWith('video/')) {
+      setFile(nextFile)
+      setUrlReady(false)
+      setVideoUrl('')
+      setUrlError('')
+    }
+  }
+
+  function startProcessing() {
+    if (!sourceReady) {
+      if (sourceMode === 'link') validateUrl()
+      else inputRef.current?.click()
+      return
+    }
+
     setStage('processing')
-    setProgress(8)
-    let value = 8
+    setProgress(6)
+    let value = 6
     const timer = window.setInterval(() => {
-      value += Math.ceil(Math.random() * 11)
+      value += Math.ceil(Math.random() * 9)
       if (value >= 100) {
         window.clearInterval(timer)
         setProgress(100)
@@ -72,43 +158,20 @@ export default function App() {
       } else {
         setProgress(value)
       }
-    }, 340)
+    }, 360)
   }
 
-  function onFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const nextFile = event.target.files?.[0]
-    if (nextFile) startProcessing(nextFile)
+  function resetProject() {
+    setStage('idle')
+    setProgress(0)
+    setFile(null)
+    setVideoUrl('')
+    setUrlReady(false)
+    setUrlError('')
+    setActiveClip(0)
   }
 
-  function onDrop(event: DragEvent<HTMLDivElement>) {
-    event.preventDefault()
-    const nextFile = event.dataTransfer.files?.[0]
-    if (nextFile?.type.startsWith('video/')) startProcessing(nextFile)
-  }
-
-  function startProcessingFromLink() {
-    try {
-      const parsed = new URL(videoUrl.trim())
-      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('invalid')
-      setUrlError('')
-      setFile(null)
-      setStage('processing')
-      setProgress(8)
-      let value = 8
-      const timer = window.setInterval(() => {
-        value += Math.ceil(Math.random() * 11)
-        if (value >= 100) {
-          window.clearInterval(timer)
-          setProgress(100)
-          window.setTimeout(() => setStage('ready'), 450)
-        } else {
-          setProgress(value)
-        }
-      }, 340)
-    } catch {
-      setUrlError('Cole um link válido de vídeo.')
-    }
-  }
+  const aspectClass = aspect.replace(':', 'x')
 
   return (
     <main className="appShell">
@@ -128,7 +191,7 @@ export default function App() {
         </nav>
         <div className="headerActions">
           <button className="ghostButton">Entrar</button>
-          <button className="primaryButton compact">
+          <button className="primaryButton compact" onClick={() => document.querySelector('#studio')?.scrollIntoView({ behavior: 'smooth' })}>
             Criar projeto <ArrowRight size={15} />
           </button>
           <button className="menuButton" aria-label="Abrir menu"><Menu size={20} /></button>
@@ -142,22 +205,22 @@ export default function App() {
           <span>sua próxima ideia.</span>
         </h1>
         <p className="heroText">
-          Jogue um vídeo longo. A IA encontra as melhores histórias, enquadra, legenda,
-          limpa e entrega cortes com ritmo de conteúdo nativo.
+          Envie um vídeo ou cole um link. Configure o formato uma vez e deixe o Director organizar os cortes,
+          legendas, foco e ritmo automaticamente.
         </p>
         <div className="heroActions">
-          <button className="primaryButton heroButton" onClick={() => inputRef.current?.click()}>
-            <UploadCloud size={18} /> Testar com um vídeo
+          <button className="primaryButton heroButton" onClick={() => document.querySelector('#studio')?.scrollIntoView({ behavior: 'smooth' })}>
+            <WandSparkles size={18} /> Criar cortes agora
           </button>
-          <button className="textButton">
+          <button className="textButton" onClick={() => document.querySelector('#workflow')?.scrollIntoView({ behavior: 'smooth' })}>
             <span className="playDot"><Play size={12} fill="currentColor" /></span>
-            Ver experiência
+            Ver como funciona
           </button>
         </div>
         <div className="trustLine">
-          <span><Check size={14} /> MP4, MOV, WEBM</span>
-          <span><Check size={14} /> até 4K</span>
-          <span><Check size={14} /> português nativo</span>
+          <span><Check size={14} /> link ou upload</span>
+          <span><Check size={14} /> 9:16, 1:1 e 16:9</span>
+          <span><Check size={14} /> legendas automáticas</span>
         </div>
       </section>
 
@@ -166,12 +229,21 @@ export default function App() {
           <div>
             <span className="statusDot" />
             <strong>Direction Room</strong>
-            <small>{stage === 'ready' ? '3 cortes encontrados' : 'novo projeto'}</small>
+            <small>
+              {stage === 'ready'
+                ? `${clips.length} cortes encontrados`
+                : stage === 'processing'
+                  ? 'processando projeto'
+                  : sourceReady
+                    ? 'fonte pronta'
+                    : 'novo projeto'}
+            </small>
           </div>
           <div className="studioTopRight">
             <span>Auto-save</span>
-            <button><ChevronDown size={15} /> 9:16</button>
-            <button className="exportButton"><Download size={15} /> Exportar</button>
+            <button className="formatMini"><span>{aspect}</span><ChevronDown size={14} /></button>
+            {stage !== 'idle' && <button onClick={resetProject}><RotateCcw size={14} /> Novo</button>}
+            <button className="exportButton" disabled={stage !== 'ready'}><Download size={15} /> Exportar</button>
           </div>
         </div>
 
@@ -194,70 +266,152 @@ export default function App() {
             <AnimatePresence mode="wait">
               {stage === 'idle' && (
                 <motion.div
-                  className="sourcePanel"
+                  className="projectBuilder"
                   key="idle"
-                  initial={{ opacity: 0, scale: .98 }}
+                  initial={{ opacity: 0, scale: .985 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0 }}
                 >
-                  <div className="sourceTabs">
-                    <button className={sourceMode === 'upload' ? 'active' : ''} onClick={() => setSourceMode('upload')}>
-                      <UploadCloud size={15} /> Enviar vídeo
-                    </button>
-                    <button className={sourceMode === 'link' ? 'active' : ''} onClick={() => setSourceMode('link')}>
-                      <Link2 size={15} /> Colar link
-                    </button>
+                  <div className="builderHeader">
+                    <div>
+                      <small>PASSO 01</small>
+                      <h2>Escolha a fonte do vídeo</h2>
+                      <p>Envie um arquivo ou importe por link.</p>
+                    </div>
+                    <div className="sourceTabs">
+                      <button className={sourceMode === 'upload' ? 'active' : ''} onClick={() => setSourceMode('upload')}>
+                        <UploadCloud size={15} /> Upload
+                      </button>
+                      <button className={sourceMode === 'link' ? 'active' : ''} onClick={() => setSourceMode('link')}>
+                        <Link2 size={15} /> Link
+                      </button>
+                    </div>
                   </div>
 
                   {sourceMode === 'upload' ? (
                     <div
-                      className="dropZone"
+                      className={file ? 'dropZone selectedSource' : 'dropZone'}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={onDrop}
                       onClick={() => inputRef.current?.click()}
                     >
                       <input ref={inputRef} type="file" accept="video/*" onChange={onFileChange} hidden />
-                      <div className="uploadOrb"><UploadCloud size={28} /></div>
-                      <h2>Solte seu vídeo aqui</h2>
-                      <p>ou clique para escolher um arquivo</p>
+                      <div className="uploadOrb">{file ? <Check size={28} /> : <UploadCloud size={28} />}</div>
+                      <h3>{file ? file.name : 'Solte seu vídeo aqui'}</h3>
+                      <p>{file ? 'Arquivo pronto para configurar' : 'ou clique para escolher MP4, MOV ou WEBM'}</p>
                     </div>
                   ) : (
-                    <div className="linkImport">
-                      <div className="uploadOrb"><Link2 size={28} /></div>
-                      <h2>Cole o link do vídeo</h2>
-                      <p>YouTube, TikTok, Instagram ou link direto de vídeo</p>
+                    <div className={urlReady ? 'linkImport selectedSource' : 'linkImport'}>
+                      <div className="uploadOrb">{urlReady ? <Check size={28} /> : <Link2 size={28} />}</div>
+                      <h3>{urlReady ? 'Link pronto' : 'Cole o link do vídeo'}</h3>
+                      <p>YouTube, TikTok, Instagram ou link direto</p>
                       <div className="linkField">
                         <Link2 size={17} />
                         <input
                           value={videoUrl}
-                          onChange={(e) => { setVideoUrl(e.target.value); setUrlError('') }}
-                          onKeyDown={(e) => { if (e.key === 'Enter') startProcessingFromLink() }}
+                          onChange={(e) => { setVideoUrl(e.target.value); setUrlReady(false); setUrlError('') }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') validateUrl() }}
                           placeholder="https://..."
                           inputMode="url"
                         />
-                        <button onClick={startProcessingFromLink}>Importar <ArrowRight size={15} /></button>
+                        <button onClick={validateUrl}>{urlReady ? 'Pronto' : 'Usar link'} <ArrowRight size={15} /></button>
                       </div>
                       {urlError && <small className="urlError">{urlError}</small>}
-                      <div className="linkHint">Cole um vídeo que você tenha permissão para usar.</div>
                     </div>
                   )}
 
-                  <div className="dropDivider"><span /> <em>DS AI vai cuidar do resto</em> <span /></div>
-                  <div className="autoChips">
-                    <span><Scissors size={13} /> encontra cortes</span>
-                    <span><Mic2 size={13} /> entende a fala</span>
-                    <span><Captions size={13} /> cria legendas</span>
+                  <div className="builderDivider" />
+
+                  <div className="builderHeader builderSecond">
+                    <div>
+                      <small>PASSO 02</small>
+                      <h2>Defina o resultado</h2>
+                      <p>Você controla o formato. A IA cuida do trabalho repetitivo.</p>
+                    </div>
+                    <Settings2 size={20} />
+                  </div>
+
+                  <div className="configGrid">
+                    <section className="configCard configWide">
+                      <label>Formato de saída</label>
+                      <div className="formatChooser">
+                        <button className={aspect === '9:16' ? 'active' : ''} onClick={() => setAspect('9:16')}>
+                          <Smartphone size={19} /><strong>9:16</strong><small>TikTok · Reels · Shorts</small>
+                        </button>
+                        <button className={aspect === '1:1' ? 'active' : ''} onClick={() => setAspect('1:1')}>
+                          <Square size={18} /><strong>1:1</strong><small>Feed · Ads</small>
+                        </button>
+                        <button className={aspect === '16:9' ? 'active' : ''} onClick={() => setAspect('16:9')}>
+                          <Monitor size={19} /><strong>16:9</strong><small>YouTube · X · LinkedIn</small>
+                        </button>
+                      </div>
+                    </section>
+
+                    <section className="configCard">
+                      <label>Duração dos cortes</label>
+                      <div className="segmented">
+                        {[
+                          ['auto', 'Auto'],
+                          ['15-30', '15–30s'],
+                          ['30-60', '30–60s'],
+                          ['60-90', '60–90s'],
+                        ].map(([value, label]) => (
+                          <button key={value} className={clipLength === value ? 'active' : ''} onClick={() => setClipLength(value as ClipLength)}>{label}</button>
+                        ))}
+                      </div>
+                    </section>
+
+                    <section className="configCard">
+                      <label>Quantidade</label>
+                      <div className="segmented compactSegments">
+                        {[
+                          ['auto', 'Auto'],
+                          ['3', '3'],
+                          ['5', '5'],
+                          ['8', '8'],
+                        ].map(([value, label]) => (
+                          <button key={value} className={clipCount === value ? 'active' : ''} onClick={() => setClipCount(value as ClipCount)}>{label}</button>
+                        ))}
+                      </div>
+                    </section>
+
+                    <section className="configCard">
+                      <label><Languages size={13} /> Idioma</label>
+                      <select value={language} onChange={(e) => setLanguage(e.target.value)}>
+                        <option value="pt-BR">Português (Brasil)</option>
+                        <option value="auto">Detectar automaticamente</option>
+                        <option value="en">English</option>
+                        <option value="es">Español</option>
+                      </select>
+                    </section>
+
+                    <section className="configCard">
+                      <label>Qualidade</label>
+                      <select value={quality} onChange={(e) => setQuality(e.target.value)}>
+                        <option value="1080p">Full HD · 1080p</option>
+                        <option value="720p">HD · 720p</option>
+                        <option value="4K">4K · 2160p</option>
+                      </select>
+                    </section>
+                  </div>
+
+                  <div className="automationBar">
+                    <div className="automationCopy">
+                      <span className="automationIcon"><Sparkles size={17} /></span>
+                      <div><strong>Director Automático</strong><small>Transcrição, cortes, reenquadramento e legendas.</small></div>
+                    </div>
+                    <button className="generateButton" onClick={startProcessing}>
+                      <WandSparkles size={17} /> {sourceReady ? 'Gerar meus cortes' : 'Escolher vídeo'} <ArrowRight size={15} />
+                    </button>
                   </div>
                 </motion.div>
               )}
 
               {stage === 'processing' && (
-                <motion.div
-                  className="processingPanel"
-                  key="processing"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
+                <motion.div className="processingPanel" key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  <div className="processingMeta">
+                    <span>{aspect}</span><span>{clipLength === 'auto' ? 'duração automática' : `${clipLength}s`}</span><span>{quality}</span>
+                  </div>
                   <div className="scanPreview">
                     <div className="scanLine" />
                     <Clapperboard size={38} />
@@ -267,28 +421,34 @@ export default function App() {
                     <div className="aiPulse"><Sparkles size={16} /></div>
                     <div>
                       <small>DS DIRECTOR está analisando</small>
-                      <h2>{progress < 40 ? 'Mapeando a narrativa...' : progress < 75 ? 'Encontrando picos de atenção...' : 'Finalizando cortes...'}</h2>
+                      <h2>
+                        {progress < 22
+                          ? 'Importando e preparando o vídeo...'
+                          : progress < 46
+                            ? 'Transcrevendo e entendendo o contexto...'
+                            : progress < 72
+                              ? 'Encontrando os melhores momentos...'
+                              : progress < 90
+                                ? 'Criando enquadramento e legendas...'
+                                : 'Montando seus cortes...'}
+                      </h2>
                     </div>
                     <strong>{progress}%</strong>
                   </div>
                   <div className="progressTrack"><motion.span animate={{ width: `${progress}%` }} /></div>
                   <div className="processSteps">
-                    <span className={progress > 15 ? 'done' : ''}>Transcrição</span>
-                    <span className={progress > 42 ? 'done' : ''}>Contexto</span>
-                    <span className={progress > 68 ? 'done' : ''}>Momentos-chave</span>
-                    <span className={progress > 88 ? 'done' : ''}>Reframe</span>
+                    <span className={progress > 10 ? 'done' : ''}>Importação</span>
+                    <span className={progress > 30 ? 'done' : ''}>Transcrição</span>
+                    <span className={progress > 54 ? 'done' : ''}>Contexto</span>
+                    <span className={progress > 72 ? 'done' : ''}>Momentos</span>
+                    <span className={progress > 88 ? 'done' : ''}>Render</span>
                   </div>
                 </motion.div>
               )}
 
               {stage === 'ready' && (
-                <motion.div
-                  className="editorCanvas"
-                  key="ready"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  <div className="phonePreview">
+                <motion.div className="editorCanvas" key="ready" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                  <div className={`previewFrame aspect-${aspectClass}`}>
                     <div className="videoSurface">
                       {fileUrl ? <video src={fileUrl} muted loop autoPlay playsInline /> : null}
                       <div className="previewShade" />
@@ -296,9 +456,15 @@ export default function App() {
                         O conteúdo bom<br /><b>começa antes</b> do play.
                       </div>
                       <div className="speakerTag">DS SMART FOCUS</div>
+                      {!fileUrl && <div className="linkVideoPlaceholder"><Play size={26} fill="currentColor" /><small>preview do corte</small></div>}
                     </div>
                   </div>
                   <div className="timelinePanel">
+                    <div className="editorSummary">
+                      <div><small>Formato</small><strong>{aspect}</strong></div>
+                      <div><small>Duração</small><strong>{clips[activeClip]?.duration}</strong></div>
+                      <div><small>Qualidade</small><strong>{quality}</strong></div>
+                    </div>
                     <div className="timelineHeader">
                       <span><Play size={13} fill="currentColor" /> 00:18</span>
                       <small>00:46</small>
@@ -314,6 +480,11 @@ export default function App() {
                       <span style={{ width: '31%' }}>começa antes</span>
                       <span style={{ width: '24%' }}>do play</span>
                     </div>
+                    <div className="editorActions">
+                      <button><Captions size={14} /> Editar legenda</button>
+                      <button><Scissors size={14} /> Ajustar corte</button>
+                      <button className="strong"><Download size={14} /> Exportar este clip</button>
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -323,7 +494,7 @@ export default function App() {
           <aside className="directorPanel">
             <div className="panelTitle">
               <div><Sparkles size={16} /> <strong>AI Director</strong></div>
-              <span className="liveBadge">LIVE</span>
+              <span className="liveBadge">AUTO</span>
             </div>
 
             <div className="directorCard">
@@ -331,24 +502,16 @@ export default function App() {
               <button className="selectButton">Alta retenção <ChevronDown size={14} /></button>
             </div>
 
-            <div className="toggleRow">
-              <div><strong>Smart Focus</strong><small>Rosto sempre em quadro</small></div>
-              <button className={smartFocus ? 'toggle on' : 'toggle'} onClick={() => setSmartFocus(!smartFocus)}><span /></button>
-            </div>
-            <div className="toggleRow">
-              <div><strong>Clean Cuts</strong><small>Remove pausas mortas</small></div>
-              <button className={silenceCut ? 'toggle on' : 'toggle'} onClick={() => setSilenceCut(!silenceCut)}><span /></button>
-            </div>
+            <Toggle value={smartFocus} onChange={() => setSmartFocus(!smartFocus)} title="Smart Focus" description="Mantém o rosto em quadro" />
+            <Toggle value={silenceCut} onChange={() => setSilenceCut(!silenceCut)} title="Clean Cuts" description="Remove pausas e silêncios" />
+            <Toggle value={autoZoom} onChange={() => setAutoZoom(!autoZoom)} title="Auto Zoom" description="Cria dinâmica nos destaques" />
+            <Toggle value={autoEmoji} onChange={() => setAutoEmoji(!autoEmoji)} title="Smart Emoji" description="Emojis em momentos relevantes" />
 
             <div className="captionStyles">
               <small>Estilo de legenda</small>
               <div>
                 {['Punch', 'Clean', 'Kinetic'].map(style => (
-                  <button
-                    key={style}
-                    className={captionStyle === style ? 'selected' : ''}
-                    onClick={() => setCaptionStyle(style)}
-                  >
+                  <button key={style} className={captionStyle === style ? 'selected' : ''} onClick={() => setCaptionStyle(style)}>
                     {style === 'Punch' ? 'Aa!' : style === 'Clean' ? 'Aa' : 'A↗'}
                     <small>{style}</small>
                   </button>
@@ -356,11 +519,17 @@ export default function App() {
               </div>
             </div>
 
+            <div className="directorSummary">
+              <span><Smartphone size={13} /> {aspect}</span>
+              <span><Clock3 size={13} /> {clipLength === 'auto' ? 'Auto' : `${clipLength}s`}</span>
+              <span><Languages size={13} /> {language === 'pt-BR' ? 'PT-BR' : language.toUpperCase()}</span>
+            </div>
+
             {stage === 'ready' && (
               <motion.div className="insightCard" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <Gauge size={18} />
-                <div><strong>96</strong><small>Momentum Score</small></div>
-                <p>Gancho forte + mudança de ritmo nos primeiros 2,4s.</p>
+                <div><strong>{clips[activeClip]?.score ?? 96}</strong><small>Momentum Score</small></div>
+                <p>Gancho forte + mudança de ritmo logo no início do trecho.</p>
               </motion.div>
             )}
           </aside>
@@ -369,16 +538,15 @@ export default function App() {
         {stage === 'ready' && (
           <motion.div className="clipShelf" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <div className="shelfHeader">
-              <div><Sparkles size={16} /><strong>Momentos encontrados</strong><span>3</span></div>
-              <button>Ver todos <ArrowRight size={14} /></button>
+              <div><Sparkles size={16} /><strong>Momentos encontrados</strong><span>{clips.length}</span></div>
+              <div className="shelfActions">
+                <button onClick={resetProject}><RotateCcw size={14} /> Novo projeto</button>
+                <button className="exportAll"><Download size={14} /> Exportar todos</button>
+              </div>
             </div>
             <div className="clipCards">
-              {sampleClips.map((clip, index) => (
-                <button
-                  className={activeClip === index ? 'clipCard active' : 'clipCard'}
-                  key={clip.title}
-                  onClick={() => setActiveClip(index)}
-                >
+              {clips.map((clip, index) => (
+                <button className={activeClip === index ? 'clipCard active' : 'clipCard'} key={clip.title} onClick={() => setActiveClip(index)}>
                   <div className="clipThumb">
                     <span className="score"><Zap size={11} fill="currentColor" /> {clip.score}</span>
                     <span className="clipPlay"><Play size={14} fill="currentColor" /></span>
@@ -396,16 +564,16 @@ export default function App() {
       </section>
 
       <section className="manifesto" id="workflow">
-        <div className="manifestoLabel">NOSSA TESE</div>
-        <h2>Editar vídeo não deveria parecer<br />trabalho de edição.</h2>
+        <div className="manifestoLabel">FLUXO AUTOMÁTICO</div>
+        <h2>Você escolhe o resultado.<br />O Director monta o caminho.</h2>
         <p>
-          Por isso o DS Clips trabalha como um diretor: entende contexto, intenção e ritmo
-          antes de encostar na timeline.
+          A experiência foi desenhada para reduzir decisões repetitivas: fonte, formato, duração e quantidade
+          ficam sob seu controle; o restante entra em automação.
         </p>
         <div className="principles">
-          <article><span>01</span><h3>Entender</h3><p>Transcreve e interpreta o que realmente importa no vídeo.</p></article>
-          <article><span>02</span><h3>Dirigir</h3><p>Seleciona momentos, reposiciona enquadramento e cria ritmo.</p></article>
-          <article><span>03</span><h3>Entregar</h3><p>Gera variações prontas para cada formato e plataforma.</p></article>
+          <article><span>01</span><h3>Importar</h3><p>Arquivo local ou link de vídeo em um único ponto de entrada.</p></article>
+          <article><span>02</span><h3>Configurar</h3><p>Formato, duração, quantidade, idioma e qualidade antes de processar.</p></article>
+          <article><span>03</span><h3>Gerar</h3><p>Transcrição, cortes, legendas e reenquadramento dentro do mesmo fluxo.</p></article>
         </div>
       </section>
 
@@ -414,21 +582,21 @@ export default function App() {
           <div className="featureIcon"><Captions /></div>
           <small>LIVE CAPTIONS</small>
           <h3>Legenda que participa<br />da história.</h3>
-          <p>Palavra, intenção e ritmo visual sincronizados com a fala.</p>
-          <div className="kineticDemo"><span>VOCÊ</span><span>NÃO</span><span>PRECISA</span><b>EDITAR.</b></div>
+          <p>Escolha o estilo antes de gerar e refine depois, sem perder o ritmo do vídeo.</p>
+          <div className="kineticDemo"><span>VOCÊ</span><span>ESCOLHE</span><span>O FORMATO.</span><b>DS FAZ O RESTO.</b></div>
         </article>
         <article className="feature">
           <div className="featureIcon"><Gauge /></div>
           <small>MOMENTUM SCORE</small>
-          <h3>Não é “viral score”.<br />É explicação.</h3>
-          <p>Entenda por que um trecho tem potencial de segurar atenção.</p>
+          <h3>Não é só um número.<br />É contexto.</h3>
+          <p>Cada corte mostra o motivo de ter sido selecionado para você decidir melhor.</p>
           <div className="meter"><span /><i>96</i></div>
         </article>
         <article className="feature">
           <div className="featureIcon"><Clock3 /></div>
-          <small>ONE SOURCE</small>
-          <h3>Um vídeo.<br />Muitas narrativas.</h3>
-          <p>Variações de gancho, duração e formato sem refazer o projeto.</p>
+          <small>MULTI FORMAT</small>
+          <h3>Um vídeo.<br />Três formatos.</h3>
+          <p>9:16 para vertical, 1:1 para feed e 16:9 para conteúdo horizontal.</p>
           <div className="formatStack"><span>9:16</span><span>1:1</span><span>16:9</span></div>
         </article>
       </section>
