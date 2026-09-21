@@ -23,12 +23,32 @@ let loaded = false
 async function getFFmpeg() {
   if (!ffmpeg) ffmpeg = new FFmpeg()
   if (!loaded) {
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm'
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-    })
-    loaded = true
+    const sources = [
+      'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm',
+      'https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm',
+    ]
+
+    let lastError: unknown = null
+    for (const baseURL of sources) {
+      try {
+        const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript')
+        const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
+        await ffmpeg.load({ coreURL, wasmURL })
+        loaded = true
+        break
+      } catch (error) {
+        lastError = error
+      }
+    }
+
+    if (!loaded) {
+      const detail = lastError instanceof Error ? lastError.message : String(lastError ?? '')
+      throw new Error(
+        detail && detail !== 'Failed to fetch'
+          ? `Não foi possível carregar o motor de edição: ${detail}`
+          : 'Não foi possível carregar o motor de edição de vídeo. Verifique a internet e tente novamente.'
+      )
+    }
   }
   return ffmpeg
 }
