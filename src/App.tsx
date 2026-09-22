@@ -110,23 +110,38 @@ export default function App() {
   const sourceReady = Boolean(file || urlReady)
 
   function validateUrl() {
+    setProcessingError('')
     try {
       const parsed = new URL(videoUrl.trim())
       if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('invalid')
+
       const host = parsed.hostname.replace(/^www\./, '').toLowerCase()
+      const pathname = parsed.pathname.toLowerCase()
       const socialHosts = ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'vimeo.com', 'drive.google.com']
-      if (socialHosts.some(domain => host === domain || host.endsWith('.' + domain))) {
+      const isSocial = socialHosts.some(domain => host === domain || host.endsWith('.' + domain))
+      const isDirectVideo = /\.(mp4|webm|mov|m4v)(?:$|\?)/i.test(pathname + parsed.search)
+
+      setFile(null)
+
+      if (isSocial) {
         setUrlReady(false)
-        setFile(null)
-        setUrlError('Links de YouTube, TikTok, Instagram, Vimeo e Drive precisam do backend do DS Clips. Na versão atual do GitHub Pages, use Upload para processar o vídeo de verdade.')
-        return
+        setUrlError('Esse link é de uma plataforma social e não pode ser baixado pelo GitHub Pages. Use Upload agora. Links de YouTube, TikTok, Instagram, Vimeo e Drive serão aceitos na versão com backend.')
+        return false
       }
+
+      if (!isDirectVideo) {
+        setUrlReady(false)
+        setUrlError('Use um link direto para arquivo de vídeo (.mp4, .webm, .mov ou .m4v).')
+        return false
+      }
+
       setUrlError('')
       setUrlReady(true)
-      setFile(null)
+      return true
     } catch {
       setUrlReady(false)
       setUrlError('Cole um link válido de vídeo.')
+      return false
     }
   }
 
@@ -152,9 +167,11 @@ export default function App() {
   }
 
   async function startProcessing() {
-    if (!sourceReady) {
-      if (sourceMode === 'link') validateUrl()
-      else inputRef.current?.click()
+    if (sourceMode === 'link') {
+      const valid = validateUrl()
+      if (!valid) return
+    } else if (!file) {
+      inputRef.current?.click()
       return
     }
 
@@ -166,7 +183,7 @@ export default function App() {
 
     try {
       let sourceFile = file
-      if (!sourceFile && urlReady) {
+      if (sourceMode === 'link' && urlReady) {
         setProcessingStatus('Importando vídeo pelo link...')
         sourceFile = await fetchDirectVideo(videoUrl.trim())
       }
@@ -379,8 +396,8 @@ export default function App() {
                   ) : (
                     <div className={urlReady ? 'linkImport selectedSource' : 'linkImport'}>
                       <div className="uploadOrb">{urlReady ? <Check size={28} /> : <Link2 size={28} />}</div>
-                      <h3>{urlReady ? 'Link pronto' : 'Cole o link do vídeo'}</h3>
-                      <p>Link direto para arquivo de vídeo. Para YouTube, TikTok, Instagram, Vimeo ou Drive, use a versão com backend.</p>
+                      <h3>{urlReady ? 'Link direto pronto' : 'Cole um link direto de vídeo'}</h3>
+                      <p>Compatível aqui: .mp4, .webm, .mov e .m4v. YouTube, TikTok, Instagram, Vimeo e Drive precisam do backend.</p>
                       <div className="linkField">
                         <Link2 size={17} />
                         <input
@@ -390,7 +407,7 @@ export default function App() {
                           placeholder="https://..."
                           inputMode="url"
                         />
-                        <button onClick={validateUrl}>{urlReady ? 'Pronto' : 'Usar link'} <ArrowRight size={15} /></button>
+                        <button onClick={validateUrl}>{urlReady ? 'Pronto' : 'Validar link'} <ArrowRight size={15} /></button>
                       </div>
                       {urlError && <small className="urlError">{urlError}</small>}
                     </div>
