@@ -24,7 +24,7 @@ async function getFFmpeg() {
   if (!ffmpeg) ffmpeg = new FFmpeg()
   if (!loaded) {
     try {
-      const base = import.meta.env.BASE_URL || '/'
+      const base = '/ds-clips/'
       await ffmpeg.load({
         coreURL: `${base}ffmpeg/ffmpeg-core.js`,
         wasmURL: `${base}ffmpeg/ffmpeg-core.wasm`,
