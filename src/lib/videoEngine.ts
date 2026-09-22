@@ -1,5 +1,7 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg'
-import { fetchFile, toBlobURL } from '@ffmpeg/util'
+import { fetchFile } from '@ffmpeg/util'
+import coreURL from '@ffmpeg/core/dist/esm/ffmpeg-core.js?url'
+import wasmURL from '@ffmpeg/core/dist/esm/ffmpeg-core.wasm?url'
 
 export type Aspect = '9:16' | '1:1' | '16:9'
 export type ClipLength = 'auto' | '15-30' | '30-60' | '60-90'
@@ -23,30 +25,15 @@ let loaded = false
 async function getFFmpeg() {
   if (!ffmpeg) ffmpeg = new FFmpeg()
   if (!loaded) {
-    const sources = [
-      'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm',
-      'https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm',
-    ]
-
-    let lastError: unknown = null
-    for (const baseURL of sources) {
-      try {
-        const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript')
-        const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
-        await ffmpeg.load({ coreURL, wasmURL })
-        loaded = true
-        break
-      } catch (error) {
-        lastError = error
-      }
-    }
-
-    if (!loaded) {
-      const detail = lastError instanceof Error ? lastError.message : String(lastError ?? '')
+    try {
+      await ffmpeg.load({ coreURL, wasmURL })
+      loaded = true
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error ?? '')
       throw new Error(
         detail && detail !== 'Failed to fetch'
           ? `Não foi possível carregar o motor de edição: ${detail}`
-          : 'Não foi possível carregar o motor de edição de vídeo. Verifique a internet e tente novamente.'
+          : 'Não foi possível carregar o motor de edição local.'
       )
     }
   }
