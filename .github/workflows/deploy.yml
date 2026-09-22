@@ -29,6 +29,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Prepare FFmpeg assets
+        run: |
+          mkdir -p public/ffmpeg
+          cp node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.js public/ffmpeg/ffmpeg-core.js
+          cp node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.wasm public/ffmpeg/ffmpeg-core.wasm
+
       - name: Build
         run: npm run build
 
