@@ -1,7 +1,5 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile } from '@ffmpeg/util'
-import coreURL from '@ffmpeg/core/dist/esm/ffmpeg-core.js?url'
-import wasmURL from '@ffmpeg/core/dist/esm/ffmpeg-core.wasm?url'
 
 export type Aspect = '9:16' | '1:1' | '16:9'
 export type ClipLength = 'auto' | '15-30' | '30-60' | '60-90'
@@ -26,7 +24,11 @@ async function getFFmpeg() {
   if (!ffmpeg) ffmpeg = new FFmpeg()
   if (!loaded) {
     try {
-      await ffmpeg.load({ coreURL, wasmURL })
+      const base = import.meta.env.BASE_URL || '/'
+      await ffmpeg.load({
+        coreURL: `${base}ffmpeg/ffmpeg-core.js`,
+        wasmURL: `${base}ffmpeg/ffmpeg-core.wasm`,
+      })
       loaded = true
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error ?? '')
