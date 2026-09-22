@@ -113,6 +113,14 @@ export default function App() {
     try {
       const parsed = new URL(videoUrl.trim())
       if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('invalid')
+      const host = parsed.hostname.replace(/^www\./, '').toLowerCase()
+      const socialHosts = ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'vimeo.com', 'drive.google.com']
+      if (socialHosts.some(domain => host === domain || host.endsWith('.' + domain))) {
+        setUrlReady(false)
+        setFile(null)
+        setUrlError('Links de YouTube, TikTok, Instagram, Vimeo e Drive precisam do backend do DS Clips. Na versão atual do GitHub Pages, use Upload para processar o vídeo de verdade.')
+        return
+      }
       setUrlError('')
       setUrlReady(true)
       setFile(null)
@@ -135,7 +143,7 @@ export default function App() {
   function onDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault()
     const nextFile = event.dataTransfer.files?.[0]
-    if (nextFile?.type.startsWith('video/')) {
+    if (nextFile && (nextFile.type.startsWith('video/') || /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(nextFile.name))) {
       setFile(nextFile)
       setUrlReady(false)
       setVideoUrl('')
@@ -372,7 +380,7 @@ export default function App() {
                     <div className={urlReady ? 'linkImport selectedSource' : 'linkImport'}>
                       <div className="uploadOrb">{urlReady ? <Check size={28} /> : <Link2 size={28} />}</div>
                       <h3>{urlReady ? 'Link pronto' : 'Cole o link do vídeo'}</h3>
-                      <p>YouTube, TikTok, Instagram ou link direto</p>
+                      <p>Link direto para arquivo de vídeo. Para YouTube, TikTok, Instagram, Vimeo ou Drive, use a versão com backend.</p>
                       <div className="linkField">
                         <Link2 size={17} />
                         <input
